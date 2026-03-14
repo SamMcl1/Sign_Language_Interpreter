@@ -27,7 +27,7 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-ARDUINO_PORT = 'COM3'
+ARDUINO_PORT = '/dev/ttyACM0'
 BAUD_RATE = 9600
 MODEL_PATH = 'gesture_recognizer.task'
 
@@ -114,61 +114,73 @@ def main():
     sign_confirm_frames = 20
     inactive_start = time.time()
     inactivity_threshold = 3
+    recording = False
 
     while True:
         _, img = cap.read()
         img = cv2.flip(img, 1)
         key = cv2.waitKey(1) & 0xFF
 
-        # Step 1: Run quantised CV model on frame
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        result = recognizer.recognize(mp_image)
-
-        if result.hand_landmarks:
-            inactive_start = time.time()
-            h, w, _ = img.shape
-            lms = result.hand_landmarks[0]
-
-            # Step 2: ROI - compute hand bounding box from landmarks
-            x_coords = [int(lm.x * w) for lm in lms]
-            y_coords = [int(lm.y * h) for lm in lms]
-            x1 = max(0, min(x_coords) - 25)
-            y1 = max(0, min(y_coords) - 25)
-            x2 = min(w, max(x_coords) + 25)
-            y2 = min(h, max(y_coords) + 25)
-            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), 3)
-
-            # Step 3: Determine the sign
-            if result.gestures:
-                gesture = result.gestures[0][0].category_name
-                sign = SIGN_LABELS.get(gesture, '')
-
-                if sign:
-                    cv2.putText(img, sign, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-
-                    if sign == last_sign:
-                        sign_frame_count += 1
-                    else:
-                        last_sign = sign
-                        sign_frame_count = 1
-
-                    # Step 4: Confirm sign then add to phrase
-                    if sign_frame_count == sign_confirm_frames:
-                        phrase += sign + ' '
-                        print(phrase.strip())
-                        send_to_arduino(arduino, sign)
-                        sign_frame_count = 0
-        else:
+        # Toggle recording with space bar
+        if key == ord(' '):
+            recording = not recording
+            phrase = ''
             sign_frame_count = 0
 
-            # Speak full phrase after inactivity threshold
-            if time.time() - inactive_start >= inactivity_threshold and phrase.strip():
-                speech(phrase.strip())
-                send_to_arduino(arduino, phrase.strip())
-                phrase = ''
-                inactive_start = time.time()
+        if recording:
+            # Step 1: Run quantised CV model on frame
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            result = recognizer.recognize(mp_image)
 
-        cv2.putText(img, phrase.strip(), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            if result.hand_landmarks:
+                inactive_start = time.time()
+                h, w, _ = img.shape
+                lms = result.hand_landmarks[0]
+
+                # Step 2: ROI - compute hand bounding box from landmarks
+                x_coords = [int(lm.x * w) for lm in lms]
+                y_coords = [int(lm.y * h) for lm in lms]
+                x1 = max(0, min(x_coords) - 25)
+                y1 = max(0, min(y_coords) - 25)
+                x2 = min(w, max(x_coords) + 25)
+                y2 = min(h, max(y_coords) + 25)
+                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), 3)
+
+                # Step 3: Determine the sign
+                if result.gestures:
+                    gesture = result.gestures[0][0].category_name
+                    sign = SIGN_LABELS.get(gesture, '')
+
+                    if sign:
+                        cv2.putText(img, sign, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+                        if sign == last_sign:
+                            sign_frame_count += 1
+                        else:
+                            last_sign = sign
+                            sign_frame_count = 1
+
+                        # Step 4: Confirm sign then add to phrase
+                        if sign_frame_count == sign_confirm_frames:
+                            phrase += sign + ' '
+                            print(phrase.strip())
+                            send_to_arduino(arduino, sign)
+                            sign_frame_count = 0
+            else:
+                sign_frame_count = 0
+
+                # Speak full phrase after inactivity threshold
+                if time.time() - inactive_start >= inactivity_threshold and phrase.strip():
+                    speech(phrase.strip())
+                    send_to_arduino(arduino, phrase.strip())
+                    phrase = ''
+                    inactive_start = time.time()
+
+        # Status overlay
+        status = 'RECORDING' if recording else 'PRESS SPACE TO START'
+        color = (0, 0, 255) if recording else (0, 255, 0)
+        cv2.putText(img, status, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+        cv2.putText(img, phrase.strip(), (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow('Sign Language Interpreter', img)
 
         if key == ord('q'):
