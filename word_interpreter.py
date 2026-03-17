@@ -45,6 +45,7 @@ LANDMARK_SIGNS = {
     # Numbers (continuing from built-in one/peace/four/hello)
     (0, 1, 1, 1, 0): 'three',
     (0, 1, 1, 1, 1): 'four',
+    (1, 1, 1, 1, 1): 'four',   # thumb ambiguity fallback
     (1, 0, 0, 0, 1): 'six',
     (1, 0, 0, 1, 0): 'seven',
     (1, 0, 1, 0, 0): 'eight',
