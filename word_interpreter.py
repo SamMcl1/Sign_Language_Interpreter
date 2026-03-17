@@ -20,9 +20,6 @@ from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 import serial
 import time
-from gtts import gTTS
-import io
-import pygame
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -41,6 +38,53 @@ SIGN_LABELS = {
     'Victory': 'peace',
     'ILoveYou': 'i love you',
 }
+
+# Maps (thumb, index, middle, ring, pinky) finger states to signs
+# Used as fallback when the gesture recognizer returns nothing
+LANDMARK_SIGNS = {
+    # Numbers (continuing from built-in one/peace/four/hello)
+    (0, 1, 1, 1, 0): 'three',
+    (0, 1, 1, 1, 1): 'four',
+    (1, 1, 1, 1, 1): 'four',   # thumb ambiguity fallback
+    (1, 0, 0, 0, 1): 'six',
+    (1, 0, 0, 1, 0): 'seven',
+    (1, 0, 1, 0, 0): 'eight',
+    (1, 1, 0, 0, 0): 'nine',
+    (0, 0, 1, 1, 1): 'ten',
+    # Common words
+    (0, 1, 0, 0, 1): 'call me',
+    (0, 0, 0, 0, 1): 'pinky',
+    (1, 1, 1, 0, 0): 'good',
+    (0, 0, 0, 1, 1): 'please',
+    (0, 1, 0, 1, 0): 'help',
+    (0, 0, 1, 1, 0): 'more',
+    (1, 1, 1, 1, 0): 'thank you',
+}
+
+
+TIP_IDS = [4, 8, 12, 16, 20]
+PIP_IDS = [3, 6, 10, 14, 18]
+
+
+def get_finger_states(lms, handedness='Right'):
+    """
+    Returns which fingers are extended from gesture recognizer landmarks.
+
+    Parameters:
+        lms (list): NormalizedLandmark list from GestureRecognizer result.
+        handedness (str): 'Left' or 'Right'.
+
+    Returns:
+        tuple: (thumb, index, middle, ring, pinky) — 1 if extended, 0 if folded.
+    """
+    states = []
+    if handedness == 'Right':
+        states.append(1 if lms[TIP_IDS[0]].x > lms[PIP_IDS[0]].x else 0)
+    else:
+        states.append(1 if lms[TIP_IDS[0]].x < lms[PIP_IDS[0]].x else 0)
+    for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:]):
+        states.append(1 if lms[tip].y < lms[pip].y else 0)
+    return tuple(states)
 
 
 def connect_arduino():
@@ -72,35 +116,14 @@ def send_to_arduino(arduino, text):
         arduino.write(f'{text}\n'.encode())
 
 
-def speech(text):
-    """
-    Speaks the given text using gTTS and pygame.
-
-    Blocks until playback is complete.
-
-    Parameters:
-        text (str): Text to be spoken aloud.
-    """
-    tts = gTTS(text=text, lang='en', slow=False)
-    mp3_fp = io.BytesIO()
-    tts.write_to_fp(mp3_fp)
-    mp3_fp.seek(0)
-    pygame.mixer.music.load(mp3_fp, 'mp3')
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy():
-        pygame.time.Clock().tick(10)
-
-
 def main():
     """
     Runs the word-level sign language interpreter.
 
     Captures webcam frames and runs the MediaPipe Gesture Recognizer on each
     frame. Confirmed signs are accumulated into a phrase. When no hands are
-    detected for inactivity_threshold seconds, the full phrase is spoken aloud
-    and sent to the Arduino.
+    detected for inactivity_threshold seconds, the full phrase is sent to the Arduino.
     """
-    pygame.mixer.init()
     cap = cv2.VideoCapture(0)
     arduino = connect_arduino()
 
@@ -111,7 +134,7 @@ def main():
     phrase = ''
     last_sign = ''
     sign_frame_count = 0
-    sign_confirm_frames = 20
+    sign_confirm_frames = 8
     inactive_start = time.time()
     inactivity_threshold = 3
     recording = False
@@ -147,38 +170,43 @@ def main():
                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), 3)
 
                 # Step 3: Determine the sign
+                sign = ''
                 if result.gestures:
                     gesture = result.gestures[0][0].category_name
                     sign = SIGN_LABELS.get(gesture, '')
 
-                    if sign:
-                        cv2.putText(img, sign, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                # Fallback: landmark-based detection for custom signs
+                if not sign:
+                    handedness = result.handedness[0][0].category_name if result.handedness else 'Right'
+                    states = get_finger_states(lms, handedness)
+                    sign = LANDMARK_SIGNS.get(states, '')
 
-                        if sign == last_sign:
-                            sign_frame_count += 1
-                        else:
-                            last_sign = sign
-                            sign_frame_count = 1
+                if sign:
+                    cv2.putText(img, sign, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-                        # Step 4: Confirm sign then add to phrase
-                        if sign_frame_count == sign_confirm_frames:
-                            phrase += sign + ' '
-                            print(phrase.strip())
-                            send_to_arduino(arduino, sign)
-                            sign_frame_count = 0
+                    if sign == last_sign:
+                        sign_frame_count += 1
+                    else:
+                        last_sign = sign
+                        sign_frame_count = 1
+
+                    # Step 4: Confirm sign then add to phrase
+                    if sign_frame_count == sign_confirm_frames:
+                        phrase += sign + ' '
+                        print(phrase.strip())
+                        send_to_arduino(arduino, sign)
+                        sign_frame_count = 0
             else:
                 sign_frame_count = 0
 
-                # Speak full phrase after inactivity threshold
+                # Clear phrase after inactivity threshold
                 if time.time() - inactive_start >= inactivity_threshold and phrase.strip():
-                    speech(phrase.strip())
-                    send_to_arduino(arduino, phrase.strip())
                     phrase = ''
                     inactive_start = time.time()
 
         # Status overlay
         status = 'RECORDING' if recording else 'PRESS SPACE TO START'
-        color = (0, 0, 255) if recording else (0, 255, 0)
+        color = (0, 255, 0) if recording else (0, 0, 255)
         cv2.putText(img, status, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
         cv2.putText(img, phrase.strip(), (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow('Sign Language Interpreter', img)
