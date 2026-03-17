@@ -103,6 +103,36 @@ class handDetector():
 
         return all_landmarks
 
+    def get_finger_states(self, lmlist, handedness='Right'):
+        """
+        Returns which fingers are extended as a 5-element list.
+
+        Uses tip vs PIP joint position for fingers 1-4, and lateral tip vs IP
+        position for the thumb (accounting for handedness).
+
+        Parameters:
+            lmlist (list): Landmark list of [id, x, y] from find_position().
+            handedness (str): 'Left' or 'Right' hand classification.
+
+        Returns:
+            states (list): [thumb, index, middle, ring, pinky] — 1 if extended, 0 if folded.
+        """
+        tip_ids = [4, 8, 12, 16, 20]
+        pip_ids = [3, 6, 10, 14, 18]
+        states = []
+
+        # Thumb: check lateral extension relative to IP joint
+        if handedness == 'Right':
+            states.append(1 if lmlist[tip_ids[0]][1] > lmlist[pip_ids[0]][1] else 0)
+        else:
+            states.append(1 if lmlist[tip_ids[0]][1] < lmlist[pip_ids[0]][1] else 0)
+
+        # Fingers: tip y above pip y means extended
+        for tip, pip in zip(tip_ids[1:], pip_ids[1:]):
+            states.append(1 if lmlist[tip][2] < lmlist[pip][2] else 0)
+
+        return states
+
     def get_roi(self, img, lmlist):
         """
         Crops the region of interest (hand area) from the image.

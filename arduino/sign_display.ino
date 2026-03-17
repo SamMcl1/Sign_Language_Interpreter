@@ -6,36 +6,51 @@
 //
 // LEDs:
 //   Green  = Pin 11 (recording / ready)
-//   Yellow = Pin 12 (displaying word)
+//   Yellow = Pin 12 (displaying letter)
 //   Red    = Pin 10 (not recording)
 //
 // Serial protocol (9600 baud):
-//   Receives "START", "STOP", or a sign word from Raspberry Pi
+//   Receives "START", "STOP", "del", "space", or a single letter A-Z
 
 const int SEG_A=7, SEG_B=8, SEG_C=5, SEG_D=4, SEG_E=9, SEG_F=2, SEG_G=3;
 const int GREEN_LED=11, YELLOW_LED=12, RED_LED=10;
 
-const bool GLYPHS[14][7] = {
-  {1,0,0,1,1,1,1}, // 0  = 1
-  {1,0,0,1,0,0,0}, // 1  = H
-  {0,1,1,0,0,0,0}, // 2  = E
-  {1,1,1,0,0,0,1}, // 3  = L
-  {0,0,0,0,0,0,1}, // 4  = O
-  {1,0,0,0,1,0,0}, // 5  = Y
-  {0,1,0,0,1,0,0}, // 6  = S
-  {1,1,0,1,0,1,0}, // 7  = n
-  {0,0,1,1,0,0,0}, // 8  = P
-  {1,1,1,0,0,0,0}, // 9  = t
-  {0,0,0,1,0,0,0}, // 10 = A
-  {0,1,1,0,0,1,0}, // 11 = C
-  {1,0,0,0,0,0,1}, // 12 = U
-  {1,0,0,0,0,1,1}, // 13 = i
+// Glyph table for A-Z: 0=segment ON, 1=segment OFF (common anode)
+// Segment order: [A, B, C, D, E, F, G]
+// Letters with no good 7-seg representation are left blank (all 1s)
+const bool LETTER_GLYPHS[26][7] = {
+  {0,0,0,1,0,0,0}, // A
+  {1,1,0,0,0,0,0}, // b (lowercase)
+  {0,1,1,0,0,0,1}, // C
+  {1,0,0,0,0,1,0}, // d (lowercase)
+  {0,1,1,0,0,0,0}, // E
+  {0,1,1,1,0,0,0}, // F
+  {0,0,0,0,1,0,0}, // G (like 9)
+  {1,0,0,1,0,0,0}, // H
+  {1,0,0,1,1,1,1}, // I (right side, like 1)
+  {1,0,0,0,0,1,1}, // J
+  {1,1,1,1,1,1,1}, // K - blank (no good representation)
+  {1,1,1,0,0,0,1}, // L
+  {1,1,1,1,1,1,1}, // M - blank (no good representation)
+  {1,1,0,1,0,0,0}, // n (lowercase)
+  {0,0,0,0,0,0,1}, // O
+  {0,0,1,1,0,0,0}, // P
+  {1,1,1,1,1,1,1}, // Q - blank (no good representation)
+  {1,1,1,1,0,0,0}, // r (lowercase)
+  {0,1,0,0,1,0,0}, // S
+  {1,1,1,0,0,0,0}, // t (lowercase)
+  {1,0,0,0,0,0,1}, // U
+  {1,1,1,1,1,1,1}, // V - blank (no good representation)
+  {1,1,1,1,1,1,1}, // W - blank (no good representation)
+  {1,1,1,1,1,1,1}, // X - blank (no good representation)
+  {1,0,0,0,1,0,0}, // Y
+  {0,0,1,0,0,1,0}, // Z
 };
 
 int PINS[7] = {SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G};
 
-void showGlyph(int idx) {
-  for (int i = 0; i < 7; i++) digitalWrite(PINS[i], GLYPHS[idx][i]);
+void showLetterGlyph(const bool* glyph) {
+  for (int i = 0; i < 7; i++) digitalWrite(PINS[i], glyph[i] ? HIGH : LOW);
 }
 
 void blankDisplay() {
@@ -48,12 +63,12 @@ void setLED(bool red, bool yellow, bool green) {
   digitalWrite(GREEN_LED,  green  ? HIGH : LOW);
 }
 
-void displayWord(int* seq, int len) {
+void displayLetter(char c) {
+  c = toupper(c);
+  if (c < 'A' || c > 'Z') return;
   setLED(false, true, false);
-  for (int i = 0; i < len; i++) {
-    showGlyph(seq[i]);
-    delay(500);
-  }
+  showLetterGlyph(LETTER_GLYPHS[c - 'A']);
+  delay(800);
   blankDisplay();
   setLED(false, false, true);
 }
@@ -77,22 +92,10 @@ void loop() {
 
     if (received == "START") { setLED(false, false, true); return; }
     if (received == "STOP")  { setLED(true, false, false); blankDisplay(); return; }
+    if (received == "del" || received == "space" || received == "nothing") return;
 
-    int seqHello[5] = {1,2,3,3,4};
-    int seqYes[3]   = {5,2,6};
-    int seqNo[2]    = {7,4};
-    int seqPeace[4] = {8,2,10,11};
-    int seqILY[3]   = {13,3,12};
-    int seqOne[1]   = {0};
-    int seqStop[4]  = {6,9,4,8};
-
-    if      (received == "hello")      displayWord(seqHello, 5);
-    else if (received == "yes")        displayWord(seqYes,   3);
-    else if (received == "no")         displayWord(seqNo,    2);
-    else if (received == "peace")      displayWord(seqPeace, 4);
-    else if (received == "i love you") displayWord(seqILY,   3);
-    else if (received == "one")        displayWord(seqOne,   1);
-    else if (received == "fist")       displayWord(seqStop,  4);
-    else if (received == "stop")       displayWord(seqStop,  4);
+    if (received.length() == 1) {
+      displayLetter(received.charAt(0));
+    }
   }
 }
