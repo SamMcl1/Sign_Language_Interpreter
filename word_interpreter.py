@@ -42,10 +42,22 @@ SIGN_LABELS = {
 # Maps (thumb, index, middle, ring, pinky) finger states to signs
 # Used as fallback when the gesture recognizer returns nothing
 LANDMARK_SIGNS = {
-    (0, 1, 0, 0, 1): 'call me',
+    # Numbers (continuing from built-in one/peace/four/hello)
     (0, 1, 1, 1, 0): 'three',
     (0, 1, 1, 1, 1): 'four',
+    (1, 0, 0, 0, 1): 'six',
+    (1, 0, 0, 1, 0): 'seven',
+    (1, 0, 1, 0, 0): 'eight',
+    (1, 1, 0, 0, 0): 'nine',
+    (0, 0, 1, 1, 1): 'ten',
+    # Common words
+    (0, 1, 0, 0, 1): 'call me',
     (0, 0, 0, 0, 1): 'pinky',
+    (1, 1, 1, 0, 0): 'good',
+    (0, 0, 0, 1, 1): 'please',
+    (0, 1, 0, 1, 0): 'help',
+    (0, 0, 1, 1, 0): 'more',
+    (1, 1, 1, 1, 0): 'thank you',
 }
 
 
