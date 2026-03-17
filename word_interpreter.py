@@ -199,9 +199,8 @@ def main():
             else:
                 sign_frame_count = 0
 
-                # Send full phrase after inactivity threshold
+                # Clear phrase after inactivity threshold
                 if time.time() - inactive_start >= inactivity_threshold and phrase.strip():
-                    send_to_arduino(arduino, phrase.strip())
                     phrase = ''
                     inactive_start = time.time()
 
