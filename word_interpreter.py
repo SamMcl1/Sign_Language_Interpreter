@@ -134,7 +134,7 @@ def main():
     phrase = ''
     last_sign = ''
     sign_frame_count = 0
-    sign_confirm_frames = 8
+    sign_confirm_frames = 5
     inactive_start = time.time()
     inactivity_threshold = 3
     recording = False
