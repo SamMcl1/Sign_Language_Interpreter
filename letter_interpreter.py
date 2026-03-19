@@ -63,6 +63,9 @@ def main():
     sign_frame_count = 0
     recording = False
     last_send_time = 0
+    fullscreen = False
+
+    cv2.namedWindow('Sign Language Interpreter', cv2.WINDOW_NORMAL)
 
     while True:
         _, img = cap.read()
@@ -123,6 +126,12 @@ def main():
             break
         if key == ord('c'):
             word = ''
+        if key == ord('f'):
+            fullscreen = not fullscreen
+            if fullscreen:
+                cv2.setWindowProperty('Sign Language Interpreter', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            else:
+                cv2.setWindowProperty('Sign Language Interpreter', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
 
     cap.release()
     cv2.destroyAllWindows()
