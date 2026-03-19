@@ -21,7 +21,7 @@ ARDUINO_PORT = '/dev/ttyACM0'
 BAUD_RATE = 9600
 MODEL_PATH = 'gesture_recognizer.task'
 SIGN_CONFIRM_FRAMES = 3
-SEND_COOLDOWN = 2.0
+SEND_COOLDOWN = 1.0
 
 SIGN_LABELS = {
     'Closed_Fist': 'fist',

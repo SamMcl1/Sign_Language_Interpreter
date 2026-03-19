@@ -30,7 +30,7 @@ const bool GLYPHS[21][7] = {
   {0,0,0,1,0,0,0}, // 10 = A
   {0,1,1,0,0,0,1}, // 11 = C
   {1,0,0,0,0,0,1}, // 12 = U
-  {1,0,0,0,0,1,1}, // 13 = i
+  {1,0,0,1,1,1,1}, // 13 = i (B+C: right two verticals)
   {1,1,1,1,0,1,0}, // 14 = r  (E=lower-left, G=middle only)
   {0,1,1,1,0,0,0}, // 15 = F
   {0,1,0,0,0,0,0}, // 16 = G  (also digit 6)
@@ -90,15 +90,15 @@ void loop() {
     int seqHello[5]  = {1,2,3,3,4};
     int seqYes[3]    = {5,2,6};
     int seqNo[2]     = {7,4};
-    int seqPeace[4]  = {8,2,10,11};
-    int seqILY[3]    = {13,3,12};
+    int seqPeace[5]  = {8,2,10,11,2};
+    int seqILY[8]    = {13,3,4,17,2,5,4,12};
     int seqOne[1]    = {0};
     int seqStop[4]   = {6,9,4,8};
 
     // New signs
     int seqThree[5]    = {9,1,14,2,2};
     int seqFour[4]     = {15,4,12,14};
-    int seqSix[3]      = {6,13,16};
+    int seqSix[1]      = {16};
     int seqSeven[5]    = {6,2,17,2,7};
     int seqEight[5]    = {2,13,16,1,9};
     int seqNine[4]     = {7,13,7,2};
@@ -114,14 +114,14 @@ void loop() {
     if      (received == "hello")      displayWord(seqHello,    5);
     else if (received == "yes")        displayWord(seqYes,      3);
     else if (received == "no")         displayWord(seqNo,       2);
-    else if (received == "peace")      displayWord(seqPeace,    4);
-    else if (received == "i love you") displayWord(seqILY,      3);
+    else if (received == "peace")      displayWord(seqPeace,    5);
+    else if (received == "i love you") displayWord(seqILY,      8);
     else if (received == "one")        displayWord(seqOne,      1);
     else if (received == "fist")       displayWord(seqStop,     4);
     else if (received == "stop")       displayWord(seqStop,     4);
     else if (received == "three")      displayWord(seqThree,    5);
     else if (received == "four")       displayWord(seqFour,     4);
-    else if (received == "six")        displayWord(seqSix,      3);
+    else if (received == "six")        displayWord(seqSix,      1);
     else if (received == "seven")      displayWord(seqSeven,    5);
     else if (received == "eight")      displayWord(seqEight,    5);
     else if (received == "nine")       displayWord(seqNine,     4);
